@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PathFinder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="ui/css/styles.css" />
+    <link rel="icon" type="image/png" href="ui/css/favicon.png" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  </head>
+
+  <body>
+
+    <div id="map"></div>
+
+    <div id="appHeader">
+      <div class="place-search-container">
+        <span class="search-icon"><i class="fas fa-map-marker-alt"></i></span>
+        <input id="placeSearchInput" placeholder="Nhập tên địa điểm..." />
+        <button id="placeSearchButton">Tìm</button>
+      </div>
+      <div class="search-results-container" id="searchResults"></div>
+    </div>
+    
+    <div class="control-panel" id="control-panel">
+      <div class="panel-header">
+        <div class="toggle-switch">
+          <input type="checkbox" id="roleToggle" class="toggle-input" />
+          <label for="roleToggle" class="toggle-slider"></label>
+        </div>
+      </div>
+
+      <div class="guest-controls" id="guestControls">
+        <div class="panel-section">
+          <h5><i class="fas fa-route"></i> Tìm đường</h5>
+          <label for="algorithmSelect">Chọn thuật toán:</label>
+          <select id="algorithmSelect" class="algorithm-select">
+            <option value="Dijkstra">Dijkstra</option>
+            <option value="A Star">A Star</option>
+            <option value="BFS">BFS</option>
+            <option value="DFS">DFS</option>
+            <option value="Greedy Best First">Greedy Best First Search</option>
+            <option value="Iterative Deepening DFS">Iterative Deepening DFS</option>
+            <option value="Uniform Cost Search">Uniform Cost Search</option>
+          </select>
+          
+          <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+            <button id="togglePaths" class="btn btn-primary" style="margin-bottom: 0; flex: 1;">
+              <i class="fas fa-search-location"></i> Bắt đầu tìm đường
+            </button>
+            <button id="swapPointsBtn" class="btn btn-secondary" style="margin-bottom: 0; flex: 0 0 auto; width: 45px;" title="Đảo chiều Điểm Đầu/Cuối">
+              <i class="fas fa-exchange-alt"></i>
+            </button>
+          </div>
+
+          <button id="guestResetButton" class="btn btn-danger">
+            <i class="fas fa-sync-alt"></i> Làm mới
+          </button>
+        </div>
+      </div>
+
+      <div class="admin-controls" id="adminControls">
+        <div class="panel-section">
+          <h5><i class="fas fa-tools"></i> Quản lý giao thông</h5>
+        
+          <div class="collapsible-group">
+            <button type="button" class="collapsible-trigger btn btn-info"><i class="fas fa-ban"></i> Quản lý Cấm đường</button>
+            <div class="collapsible-content">
+              <div class="control-group">
+                <button id="banEdgeBtn" class="btn btn-warning"><i class="fas fa-pen"></i> Bắt đầu cấm đường</button>
+                <button id="restoreBanBtn" class="btn btn-success"><i class="fas fa-undo"></i> Khôi phục đoạn vừa cấm</button>
+              </div>
+              <div class="control-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1);">
+                <button id="placeObstacleBtn" class="btn btn-warning"><i class="fas fa-exclamation-triangle"></i> Đặt vật cản</button>
+                <div class="input-group">
+                  <label>Bán kính ảnh hưởng (m):
+                    <input type="number" id="obstacleRadius" value="50" min="10" max="200" />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        
+          <div class="collapsible-group">
+            <button type="button" class="collapsible-trigger btn btn-info"><i class="fas fa-car-side"></i> Quản lý Tắc đường</button>
+            <div class="collapsible-content">
+              <div class="control-group">
+                <button id="trafficBtn" class="btn btn-warning"><i class="fas fa-pen"></i> Đánh dấu tắc đường</button>
+                <div class="input-group">
+                  <label>Hệ số tắc:
+                    <input type="number" id="trafficLevel" value="1" min="1" max="3" />
+                  </label>
+                </div>
+                <button id="restoreTacBtn" class="btn btn-success"><i class="fas fa-undo"></i> Khôi phục đoạn tắc</button>
+              </div>
+              <div class="control-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1);">
+                <button id="placeTrafficAreaBtn" class="btn btn-warning"><i class="fas fa-exclamation-circle"></i> Đặt vùng tắc</button>
+                <div class="input-group">
+                  <label>Bán kính ảnh hưởng (m):
+                    <input type="number" id="trafficAreaRadius" value="50" min="10" max="200" />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        
+          <div class="collapsible-group">
+            <button type="button" class="collapsible-trigger btn btn-info"><i class="fas fa-water"></i> Quản lý Ngập lụt</button>
+            <div class="collapsible-content">
+              <div class="control-group">
+                <button id="floodBtn" class="btn btn-warning"><i class="fas fa-pen"></i> Đánh dấu ngập lụt</button>
+                <div class="input-group">
+                  <label>Hệ số ngập:
+                    <input type="number" id="floodLevel" value="1" min="1" max="3" />
+                  </label>
+                </div>
+                <button id="restoreFloodBtn" class="btn btn-success"><i class="fas fa-undo"></i> Khôi phục đoạn ngập</button>
+              </div>
+              <div class="control-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1);">
+                <button id="placeFloodAreaBtn" class="btn btn-warning"><i class="fas fa-water"></i> Đặt vùng ngập</button>
+                <div class="input-group">
+                  <label>Bán kính ảnh hưởng (m):
+                    <input type="number" id="floodAreaRadius" value="50" min="10" max="200" />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        
+          <div class="collapsible-group">
+            <button type="button" class="collapsible-trigger btn btn-info"><i class="fas fa-arrow-right"></i> Quản lý Đường 1 chiều</button>
+            <div class="collapsible-content">
+              <div class="control-group">
+                <button id="toggleOneWayEdgeModeBtn" class="btn btn-warning"><i class="fas fa-hand-pointer"></i> Bật/Tắt chế độ</button>
+              </div>
+            </div>
+          </div>
+          <hr> <button id="adminResetButton" class="btn btn-danger"><i class="fas fa-trash-alt"></i> Làm mới tất cả</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="theme-toggle-btn">
+      <i class="fa fa-cogs"></i>
+    </div>
+
+    <div class="theme-dropdown">
+      <button class="theme-selector" onclick="switchTheme('light')">Light Mode</button>
+      <button class="theme-selector" onclick="switchTheme('dark')">Dark Mode</button>
+      <button class="theme-selector" onclick="switchTheme('sunset')">Sunset Mode</button>
+    </div>
+
+    <div id="routeResultPanel" class="route-result-panel hidden">
+      <div class="result-header">
+        <h4 id="resultAlgorithmName"><i class="fas fa-route"></i> Kết quả</h4>
+        <button id="closeResultBtn" class="close-btn"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="result-body">
+        <div class="result-item"><i class="fas fa-stopwatch"></i> <span id="resultTime">--</span></div>
+        <div class="result-item"><i class="fas fa-ruler-combined"></i> <span id="resultDistance">--</span></div>
+        <div class="result-item"><i class="fas fa-tachometer-alt"></i> <span>Vận tốc TB: 15 km/h</span></div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+    <script src="data/fileJs/nodes.js"></script>
+    <script src="data/fileJs/adj_list.js"></script>
+    <script src="data/fileJs/adj_list_with_weights.js"></script>
+    <script src="ui/js/main.js"></script>
+  </body>
+</html>

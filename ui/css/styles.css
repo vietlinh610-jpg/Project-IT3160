@@ -881,3 +881,30 @@ input[type="number"] {
   color: var(--primary);
   font-size: 16px;
 }
+
+/* Custom premium tooltips for station markers */
+.station-tooltip {
+  background-color: var(--panel-bg, rgba(255, 255, 255, 0.95)) !important;
+  color: var(--text-color, #1e293b) !important;
+  border: 1px solid var(--panel-border, rgba(37, 99, 235, 0.2)) !important;
+  border-radius: 8px !important;
+  font-family: 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15) !important;
+  padding: 4px 8px !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Tuyến đường đi của Guest với hiệu ứng phát sáng Neon Hot Pink */
+.path-guest-route {
+  stroke-dasharray: 8, 8;
+  animation: guestPathDash 25s linear infinite;
+  filter: drop-shadow(0 0 3px #FF007F);
+}
+
+@keyframes guestPathDash {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}

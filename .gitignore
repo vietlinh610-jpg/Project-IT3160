@@ -1,0 +1,5 @@
+.gitnexus
+.claude/
+__pycache__/
+*.pyc
+scratch/

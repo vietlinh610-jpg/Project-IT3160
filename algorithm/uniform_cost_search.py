@@ -1,36 +1,50 @@
 import heapq
-from typing import Dict, List, Tuple, Optional, Set
 
-def uniform_cost_search(adj_list: Dict[int, Dict[int, float]], 
-                          source: int, 
-                          destination: int
-                          ) -> Tuple[Optional[List[int]], List[int], Optional[float]]:
-    priority_queue: List[Tuple[float, int, List[int]]] = []
-    heapq.heappush(priority_queue, (0.0, source, [source])) 
-    
-    visited_or_settled: Set[int] = set()
-    explored_order: List[int] = [] 
 
-    while priority_queue:
-        current_cost, current_vertex, path_to_current = heapq.heappop(priority_queue)
+def get_edge_cost(edge):
+    if isinstance(edge, dict):
+        return edge.get("time", edge.get("distance", 1))
+    return edge
 
-        if current_vertex in visited_or_settled:
+
+def get_edge_line(edge):
+    if isinstance(edge, dict):
+        return edge.get("line")
+    return None
+
+
+def uniform_cost_search(graph, start, goal):
+    queue = [(0, start, [start], None)]
+    visited = set()
+    explored_nodes = []
+    transfer_penalty = 5
+
+    while queue:
+        cost, current, path, current_line = heapq.heappop(queue)
+
+        if current in visited:
             continue
-        
-        visited_or_settled.add(current_vertex)
-        explored_order.append(current_vertex)
 
-        if current_vertex == destination:
-            return path_to_current, explored_order, current_cost 
+        visited.add(current)
+        explored_nodes.append(current)
 
-        if current_vertex not in adj_list:
-            continue
+        if current == goal:
+            return path, explored_nodes, cost
 
-        for neighbor, weight in adj_list[current_vertex].items():
-            if neighbor not in visited_or_settled:
-                new_cost = current_cost + weight
-                new_path = list(path_to_current)
-                new_path.append(neighbor)
-                heapq.heappush(priority_queue, (new_cost, neighbor, new_path))
-            
-    return None, explored_order, None
+        for neighbor, edge in graph.get(current, {}).items():
+            if neighbor not in visited:
+                edge_cost = get_edge_cost(edge)
+                next_line = get_edge_line(edge)
+
+                new_cost = cost + edge_cost
+
+                if current_line is not None and next_line is not None:
+                    if current_line != next_line:
+                        new_cost += transfer_penalty
+
+                heapq.heappush(
+                    queue,
+                    (new_cost, neighbor, path + [neighbor], next_line)
+                )
+
+    return None, explored_nodes, float("inf")

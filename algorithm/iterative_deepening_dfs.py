@@ -1,19 +1,49 @@
 from typing import Dict, List, Tuple, Optional, Set
 
+
+def get_edge_cost(edge):
+    if isinstance(edge, dict):
+        return edge.get("time", edge.get("distance", 1))
+    return edge
+
+
+def get_edge_line(edge):
+    if isinstance(edge, dict):
+        return edge.get("line")
+    return None
+
+
 def _calculate_path_cost(adj_list: Dict[int, Dict[int, float]], path: List[int]) -> Optional[float]:
     if not path or len(path) < 2:
-        return 0.0 
+        return 0.0
 
     total_cost = 0.0
+    previous_line = None
+    transfer_penalty = 5
+
     for i in range(len(path) - 1):
-        u, v = path[i], path[i+1]
-        if u in adj_list and v in adj_list.get(u, {}): 
-            edge_weight = adj_list[u].get(v) 
-            if edge_weight is None: 
-                return float('inf') 
-            total_cost += edge_weight
+        u, v = path[i], path[i + 1]
+
+        if u in adj_list and v in adj_list.get(u, {}):
+            edge = adj_list[u].get(v)
+
+            if edge is None:
+                return float("inf")
+
+            total_cost += get_edge_cost(edge)
+
+            current_line = get_edge_line(edge)
+
+            if previous_line is not None and current_line is not None:
+                if current_line != previous_line:
+                    total_cost += transfer_penalty
+
+            if current_line is not None:
+                previous_line = current_line
+
         else:
-            return float('inf') 
+            return float("inf")
+
     return total_cost
 
 def _dls_iterative(adj_list: Dict[int, Dict[int, float]], 

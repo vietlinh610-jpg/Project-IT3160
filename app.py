@@ -1,6 +1,6 @@
 # Tệp: app.py
 import csv
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from copy import deepcopy
 from typing import Dict, List, Optional, Tuple, Set 
@@ -17,6 +17,13 @@ from algorithm.uniform_cost_search import uniform_cost_search
 
 app = Flask(__name__)
 CORS(app)
+
+@app.route('/')
+def home():
+    return send_from_directory('.', 'index.html')
+@app.route('/<path:path>')
+def static_files(path):
+    return send_from_directory('.', path)
 
 adj_dict_original: Dict[int, Dict[int, float]] = {}
 edges_file_original: str = 'data/fileCsv/adj_list_with_weights.csv'

@@ -18,6 +18,11 @@ let showEdges = false;
 
 let startPointMarker = null; // Để lưu marker/popup của điểm bắt đầu
 let endPointMarker = null;   // Để lưu marker/popup của điểm kết thúc
+
+let startOriginMarker = null; 
+let endOriginMarker = null;
+let startConnectionLine = null;
+let endConnectionLine = null;
 // Xử lý tắc đường
 let trafficLevel; // Biến toàn cục để xác định mức độ tắc đường
 let trafficMarkers = []; // Biến toàn cục để lưu các marker tắc đường
@@ -547,13 +552,31 @@ function processMapSelection(lat, lng) {
 
   if (selectedPoints.length === 0) {
       selectedPoints.push(closestNode.node_id);
+      
+      // Xóa các điểm và đường nối cũ nếu có
       if (startPointMarker) map.removeLayer(startPointMarker);
+      if (startOriginMarker) map.removeLayer(startOriginMarker);
+      if (startConnectionLine) map.removeLayer(startConnectionLine);
+
+      // 1. Tạo điểm chỉ thị ban đầu (nơi click) bằng một chấm xám nhỏ
+      startOriginMarker = L.circleMarker([lat, lng], {
+          radius: 4, color: "#666", fillColor: "#fff", fillOpacity: 1, weight: 2
+      }).addTo(map).bindPopup("Vị trí bạn chọn", { className: 'compact-point-popup' });
+
+      // 2. Vẽ đường nối nét đứt từ điểm click đến trạm gần nhất
+      startConnectionLine = L.polyline([[lat, lng], [closestNode.lat, closestNode.lon]], {
+          color: "#888", weight: 2, dashArray: "4,4"
+      }).addTo(map);
+
+      // 3. Tạo marker trạm tàu (màu xanh)
       startPointMarker = L.circleMarker([closestNode.lat, closestNode.lon], {
           radius: 4, color: "green", fillColor: "green", fillOpacity: 0.7, pane: 'markerPane'
       }).addTo(map)
         .bindPopup(`<b>Điểm bắt đầu</b>`, { className: 'point-popup start-point-popup compact-point-popup', autoClose: false, closeOnClick: false })
         .openPopup();
+        
       updateMarkerPopupWithGeocoding(startPointMarker, clickedLatLng.lat, clickedLatLng.lng, "Điểm bắt đầu");
+
   } else if (selectedPoints.length === 1) {
       if (selectedPoints[0] === closestNode.node_id) {
           map.closePopup();
@@ -563,25 +586,38 @@ function processMapSelection(lat, lng) {
             .openOn(map);
           return;
       }
+      
       selectedPoints.push(closestNode.node_id);
+      
+      // Xóa các điểm và đường nối cũ nếu có
       if (endPointMarker) map.removeLayer(endPointMarker);
+      if (endOriginMarker) map.removeLayer(endOriginMarker);
+      if (endConnectionLine) map.removeLayer(endConnectionLine);
+
+      // 1. Tạo điểm chỉ thị ban đầu (nơi click)
+      endOriginMarker = L.circleMarker([lat, lng], {
+          radius: 4, color: "#666", fillColor: "#fff", fillOpacity: 1, weight: 2
+      }).addTo(map).bindPopup("Vị trí bạn chọn", { className: 'compact-point-popup' });
+
+      // 2. Vẽ đường nối nét đứt từ điểm click đến trạm gần nhất
+      endConnectionLine = L.polyline([[lat, lng], [closestNode.lat, closestNode.lon]], {
+          color: "#888", weight: 2, dashArray: "4,4"
+      }).addTo(map);
+
+      // 3. Tạo marker trạm tàu
       endPointMarker = L.circleMarker([closestNode.lat, closestNode.lon], {
           radius: 4, color: "green", fillColor: "green", fillOpacity: 0.7, pane: 'markerPane'
       }).addTo(map)
         .bindPopup(`<b>Điểm kết thúc</b>`, { className: 'point-popup end-point-popup compact-point-popup', autoClose: false, closeOnClick: false })
         .openPopup();
+        
       updateMarkerPopupWithGeocoding(endPointMarker, clickedLatLng.lat, clickedLatLng.lng, "Điểm kết thúc");
   } else {
-    const popup = L.popup({
-      className: 'info-leaflet-popup synced-leaflet-popup compact-point-popup'
-    })
+    const popup = L.popup({ className: 'info-leaflet-popup synced-leaflet-popup compact-point-popup' })
       .setLatLng([closestNode.lat, closestNode.lon])
       .setContent("Đã có Điểm đầu và Điểm cuối.")
       .openOn(map);
-    
-    setTimeout(() => {
-      map.closePopup(popup);
-    }, 3000);
+    setTimeout(() => map.closePopup(popup), 3000);
   }
 }
 
@@ -775,8 +811,22 @@ map.on("click", function (e) {
       return;
   }
 
-  // Nếu không phải các mode đặc biệt của admin, gọi hàm xử lý chọn điểm
-  processMapSelection(lat, lng);
+// Nếu không phải các mode đặc biệt của admin, hiện Popup chứa nút bấm
+  const popupHtml = `
+    <div style="text-align: center; padding: 5px;">
+        <p style="margin-top: 0; margin-bottom: 10px; font-weight: 500; font-size: 14px;">
+            Chọn vị trí này?
+        </p>
+        <button class="btn btn-primary" onclick="window.confirmSelection(${lat}, ${lng})" style="padding: 8px 12px; margin: 0; width: 100%;">
+            <i class="fas fa-location-arrow"></i> Tìm trạm gần nhất
+        </button>
+    </div>
+  `;
+
+  L.popup({ className: 'synced-leaflet-popup compact-point-popup' })
+    .setLatLng(e.latlng)
+    .setContent(popupHtml)
+    .openOn(map);
 });
 
 // Xử lý di chuyển chuột
@@ -1020,6 +1070,12 @@ document.getElementById("swapPointsBtn").addEventListener("click", function() {
   getAlgorithm(); 
 });
 
+// Hàm gắn vào nút bấm trên Popup để xác nhận tìm trạm tàu
+window.confirmSelection = function(lat, lng) {
+    map.closePopup(); // Đóng popup
+    processMapSelection(lat, lng); // Gọi lại logic tìm trạm gần nhất hiện tại của bạn
+};
+
 // Sự kiện nút Tắt bảng kết quả
 document.getElementById("closeResultBtn").addEventListener("click", function() {
   document.getElementById("routeResultPanel").classList.add("hidden");
@@ -1132,15 +1188,9 @@ algorithmSelect.addEventListener("change", function () {
 });
 
 function getAlgorithm() {
-  map.eachLayer(function (layer) {
-    if (
-      layer instanceof L.Polyline && // Là Polyline
-      !(layer instanceof L.TileLayer) && // Không phải TileLayer
-      (layer.options.color === "#FF007F" || layer.options.id === 'path-polyline-guest') // Có màu Neon Hot Pink hoặc ID tương ứng
-    ) {
-      map.removeLayer(layer);
-    }
-  });
+  if (guestPathGroup) {
+      guestPathGroup.clearLayers();
+  }
   findAndDrawPath();
 }
 
@@ -1581,13 +1631,16 @@ function resetMapWithGuest() {
       map.removeLayer(endPointMarker);
       endPointMarker = null;
   }
+  // Dọn dẹp điểm gốc và đường nối
+  if (startOriginMarker) { map.removeLayer(startOriginMarker); startOriginMarker = null; }
+  if (endOriginMarker) { map.removeLayer(endOriginMarker); endOriginMarker = null; }
+  if (startConnectionLine) { map.removeLayer(startConnectionLine); startConnectionLine = null; }
+  if (endConnectionLine) { map.removeLayer(endConnectionLine); endConnectionLine = null; }
   // Đóng tất cả popup đang mở 
   map.closePopup();
-  map.eachLayer(function (layer) {
-    if (layer.options && layer.options.id === 'path-polyline-guest') {
-        map.removeLayer(layer);
-    }
-});
+  if (guestPathGroup) {
+      guestPathGroup.clearLayers();
+  }
     // Xóa nội dung ô tìm kiếm
     if (typeof placeSearchInput !== 'undefined' && placeSearchInput) {
       placeSearchInput.value = '';
@@ -1663,11 +1716,9 @@ function resetMapWithAdmin() {
     tempSearchMarker = null;
   }
   // Xóa tất cả các layer trên bản đồ
-  map.eachLayer(function (layer) {
-    if (!(layer instanceof L.TileLayer)) {
-      map.removeLayer(layer);
-    }
-  });
+  if (guestPathGroup) {
+      guestPathGroup.clearLayers();
+  }
   console.log("\nReset bản đồ thành công!\n");
   console.log("Blocked edges: ", blockedEdges);
   console.log("TrafficEdges: ", trafficEdges);
@@ -1734,7 +1785,7 @@ function segmentsIntersect(p1, p2, q1, q2, epsilon) {
 }
 
 let currentDebugDisplayLayers = [];
-let guestPathPolyline = null; 
+let guestPathGroup = null; // Quản lý nhóm đường đi và icon chuyển trạm
 
 function clearCurrentDebugDisplay() {
     currentDebugDisplayLayers.forEach(layer => {
@@ -1936,172 +1987,110 @@ function displayNodeAndDirectNeighbors(targetNodeIds) {
 }
 
 function drawPath(pathNodeIds, costWithFactors, realDistance, algorithmUsed) {
-  // Xóa đường đi cũ của guest nếu có
-  algorithmSelect.disabled = true; // Khóa
-  togglePaths.disabled = true;
-  roleToggle.disabled = true;
-  guestResetButton.disabled = true;
-  if (guestPathPolyline && map.hasLayer(guestPathPolyline)) {
-      map.removeLayer(guestPathPolyline);
-      guestPathPolyline = null;
-  }
-  // Cũng có thể bạn dùng ID để xóa, đảm bảo nó được xóa:
-  map.eachLayer(function (layer) {
-      if (layer.options && layer.options.id === 'path-polyline-guest') {
-          map.removeLayer(layer);
-      }
-  });
+  // Khóa giao diện khi đang vẽ
+  if(document.getElementById("algorithmSelect")) document.getElementById("algorithmSelect").disabled = true;
+  if(document.getElementById("togglePaths")) document.getElementById("togglePaths").disabled = true;
+  if(document.getElementById("roleToggle")) document.getElementById("roleToggle").disabled = true;
+  if(document.getElementById("guestResetButton")) document.getElementById("guestResetButton").disabled = true;
 
-
-  if (!pathNodeIds || pathNodeIds.length < 2) {
-      console.warn("drawPath: Đường đi không hợp lệ hoặc không đủ điểm để vẽ.");
-      return;
+  // Xóa nhóm đường đi cũ và tạo lại group mới
+  if (guestPathGroup) {
+      guestPathGroup.clearLayers();
+  } else {
+      guestPathGroup = L.featureGroup().addTo(map);
   }
 
-  const latlngs = pathNodeIds.map((id) => {
-      const node = nodes.find((n) => n.node_id === id);
-      if (!node) {
-          console.warn(`drawPath: Không tìm thấy thông tin cho node ID: ${id}`);
-          return null;
-      }
-      return [node.lat, node.lon];
-  }).filter(p => p !== null && typeof p[0] === 'number' && typeof p[1] === 'number');
-
-  if (latlngs.length < 2) {
-      console.warn("drawPath: Không đủ điểm hợp lệ (sau khi lọc) để vẽ đường đi.");
-      return;
-  }
-
-  // Tạo đối tượng polyline, ban đầu chỉ với điểm đầu tiên để bắt đầu animation
-  guestPathPolyline = L.polyline([latlngs[0]], { // Khởi tạo với điểm đầu tiên
-      color: "#FF007F", // Màu Neon Hot Pink cho đường đi
-      weight: 6,        // Độ dày của đường
-      opacity: 0.85,
-      id: 'path-polyline-guest', // ID để có thể xóa sau này
-      className: 'path-guest-route' // Class CSS (nếu có)
-  }).addTo(map);
-
-
+  // Lọc lấy danh sách dữ liệu ga (node objects)
+  const pathNodes = pathNodeIds.map((id) => nodes.find((n) => n.node_id === id)).filter(n => n !== undefined);
+  if (pathNodes.length < 2) return;
 
   // --- BẮT ĐẦU CHUẨN BỊ DỮ LIỆU CHO BẢNG KẾT QUẢ ---
   let formattedCost = "Không có";
   if (costWithFactors !== undefined && costWithFactors !== null && costWithFactors !== Infinity) {
-      if (costWithFactors >= 3600) {
-          formattedCost = `${Math.floor(costWithFactors / 3600)} giờ ${Math.floor((costWithFactors % 3600) / 60)} phút`;
-      } else if (costWithFactors >= 60) {
-          formattedCost = `${Math.floor(costWithFactors / 60)} phút ${Math.round(costWithFactors % 60)} giây`;
-      } else if (costWithFactors > 0) {
-          formattedCost = `${costWithFactors.toFixed(0)} giây`;
-      } else if (costWithFactors === 0) {
-          formattedCost = `Không đáng kể`;
-      }
+      if (costWithFactors >= 3600) formattedCost = `${Math.floor(costWithFactors / 3600)} giờ ${Math.floor((costWithFactors % 3600) / 60)} phút`;
+      else if (costWithFactors >= 60) formattedCost = `${Math.floor(costWithFactors / 60)} phút ${Math.round(costWithFactors % 60)} giây`;
+      else if (costWithFactors > 0) formattedCost = `${costWithFactors.toFixed(0)} giây`;
+      else if (costWithFactors === 0) formattedCost = `Không đáng kể`;
   }
 
   let formattedDistance = "Không có";
   if (realDistance !== undefined && realDistance !== null && realDistance !== Infinity) {
-      if (realDistance >= 1000) {
-          formattedDistance = (realDistance / 1000).toFixed(2) + " km";
-      } else if (realDistance >= 0) {
-          formattedDistance = realDistance.toFixed(0) + " m";
-      }
+      if (realDistance >= 1000) formattedDistance = (realDistance / 1000).toFixed(2) + " km";
+      else if (realDistance >= 0) formattedDistance = realDistance.toFixed(0) + " m";
   }
 
-  // Gán dữ liệu vào HTML của Bảng Kết Quả
   const algNameEl = document.getElementById("resultAlgorithmName");
   if (algNameEl) algNameEl.innerHTML = `<i class="fas fa-route"></i> ${algorithmUsed}`;
-  
   const timeEl = document.getElementById("resultTime");
   if (timeEl) timeEl.innerText = formattedCost;
-  
   const distEl = document.getElementById("resultDistance");
   if (distEl) distEl.innerText = formattedDistance;
   // --- KẾT THÚC CHUẨN BỊ DỮ LIỆU ---
 
-  // Animation
-  let currentIndex = 1; 
-  const animationSpeed = 80; 
-  const totalSegments = latlngs.length -1;
+  // Hiệu ứng Animation vẽ từng đoạn đường nhiều màu
+  let currentIndex = 0; 
+  const animationSpeed = 50; // Tốc độ chạy (ms)
   let segmentsDrawn = 0;
 
   function animatePathDrawing() {
-      if (currentIndex < latlngs.length && guestPathPolyline && map.hasLayer(guestPathPolyline)) {
-          guestPathPolyline.addLatLng(L.latLng(latlngs[currentIndex]));
-          segmentsDrawn++;
+      // Điều kiện lặp: Từ ga hiện tại tới ga kế tiếp
+      if (currentIndex < pathNodes.length - 1) {
+          const n1 = pathNodes[currentIndex];
+          const n2 = pathNodes[currentIndex + 1];
+          const isTransfer = n1.line !== n2.line; // Phát hiện chuyển tuyến
+
+          const p1 = [n1.lat, n1.lon];
+          const p2 = [n2.lat, n2.lon];
           
-          if (segmentsDrawn % 20 === 0 || segmentsDrawn === totalSegments) { // Cập nhật view sau mỗi 5 đoạn hoặc khi kết thúc
-            map.panTo(L.latLng(latlngs[currentIndex]), { animate: true, duration: 0.3});
+          // Lấy đúng màu của tuyến Metro đang chạy, mặc định xanh nếu thiếu
+          let segmentOptions = {};
+
+          if (isTransfer) {
+              // Nếu đang chuyển trạm: Vẽ nét đứt màu xám đậm (Giữ nguyên)
+              segmentOptions = { color: "#666", weight: 5, dashArray: "5, 5", opacity: 0.9 };
+              
+              const midpoint = [(n1.lat + n2.lat) / 2, (n1.lon + n2.lon) / 2];
+              const transferIcon = L.divIcon({
+                  className: 'transfer-icon-marker',
+                  html: '<i class="fas fa-walking"></i>',
+                  iconSize: [22, 22],
+                  iconAnchor: [11, 11]
+              });
+              L.marker(midpoint, { icon: transferIcon, zIndexOffset: 1500 }).addTo(guestPathGroup)
+                .bindPopup(`<b>🚶 Chuyển tuyến</b><br>Từ: ${n1.line}<br>Sang: ${n2.line}`, { className: 'compact-point-popup' });
+          } else {
+              // Nếu đi thẳng: Thay đổi tất cả thành Màu Xanh Lam (#007bff) để dễ nhìn
+              segmentOptions = { color: "#007bff", weight: 7, opacity: 0.95, className: 'premium-path-segment' };
           }
+
+          // Thêm đoạn đường vào Group
+          L.polyline([p1, p2], segmentOptions).addTo(guestPathGroup);
+
+          segmentsDrawn++;
+          // Cập nhật camera lướt theo đường đi
+          if (segmentsDrawn % 8 === 0) map.panTo(L.latLng(p2), { animate: true, duration: 0.2});
 
           currentIndex++;
           setTimeout(animatePathDrawing, animationSpeed);
-      } else if (guestPathPolyline && map.hasLayer(guestPathPolyline)) {
-        algorithmSelect.disabled = false; // Khóa
-        togglePaths.disabled = false;
-        roleToggle.disabled = false;
-        guestResetButton.disabled = false;
-        setTimeout(() => {
-            if (guestPathPolyline && map.hasLayer(guestPathPolyline) && latlngs.length > 0) {
-                // Xác định điểm giữa của đường đi
-                const latLngObjects = latlngs.map(p => L.latLng(p));
-
-                const middleLatLng = getLatLngAtHalfDistance(latLngObjects);
-
-                console.log(middleLatLng);
-
-                // Mở bảng kết quả thay vì popup
-                document.getElementById("routeResultPanel").classList.remove("hidden");
-
-                map.fitBounds(guestPathPolyline.getBounds().pad(0.3));
-            }
-        }, 500);
+      } else {
+          // Khi vẽ xong tất cả: Mở khóa UI, thu gọn camera và hiện bảng kết quả
+          if(document.getElementById("algorithmSelect")) document.getElementById("algorithmSelect").disabled = false;
+          if(document.getElementById("togglePaths")) document.getElementById("togglePaths").disabled = false;
+          if(document.getElementById("roleToggle")) document.getElementById("roleToggle").disabled = false;
+          if(document.getElementById("guestResetButton")) document.getElementById("guestResetButton").disabled = false;
+          
+          setTimeout(() => {
+              const rp = document.getElementById("routeResultPanel");
+              if (rp) rp.classList.remove("hidden");
+              if (guestPathGroup.getLayers().length > 0) {
+                  map.fitBounds(guestPathGroup.getBounds().pad(0.1));
+              }
+          }, 300);
       }
   }
 
-  if (latlngs.length >= 1 && guestPathPolyline) { 
-      animatePathDrawing();
-  } else if (latlngs.length === 1 && guestPathPolyline) {
-      algorithmSelect.disabled = false;
-      togglePaths.disabled = false;
-      roleToggle.disabled = false;
-      guestResetButton.disabled = false;
-      setTimeout(() => {
-          if (guestPathPolyline && map.hasLayer(guestPathPolyline)) {
-              document.getElementById("routeResultPanel").classList.remove("hidden");
-               map.setView(L.latLng(latlngs[0]), 17); // Zoom vào điểm đó
-          }
-      }, 500);
-  }
-}
-
-function getLatLngAtHalfDistance(latlngs) {
-  if (!Array.isArray(latlngs) || latlngs.length < 2) return null;
-
-  // Đảm bảo định dạng
-  latlngs = latlngs.map(p => (p instanceof L.LatLng ? p : L.latLng(p)));
-
-  let totalDistance = 0;
-  const distances = [];
-
-  for (let i = 0; i < latlngs.length - 1; i++) {
-      const dist = latlngs[i].distanceTo(latlngs[i + 1]);
-      distances.push(dist);
-      totalDistance += dist;
-  }
-
-  const halfDistance = totalDistance / 2;
-  let accumulated = 0;
-
-  for (let i = 0; i < distances.length; i++) {
-      if (accumulated + distances[i] >= halfDistance) {
-          const ratio = (halfDistance - accumulated) / distances[i];
-          const lat = latlngs[i].lat + ratio * (latlngs[i + 1].lat - latlngs[i].lat);
-          const lng = latlngs[i].lng + ratio * (latlngs[i + 1].lng - latlngs[i].lng);
-          return L.latLng(lat, lng);
-      }
-      accumulated += distances[i];
-  }
-
-  return latlngs[Math.floor(latlngs.length / 2)];
+  // Khởi động Animation
+  animatePathDrawing();
 }
 
 

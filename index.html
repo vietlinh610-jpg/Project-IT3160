@@ -68,11 +68,16 @@
           <h5><i class="fas fa-tools"></i> Quản lý giao thông</h5>
         
           <div class="collapsible-group">
-            <button type="button" class="collapsible-trigger btn btn-info"><i class="fas fa-ban"></i> Quản lý Cấm đường</button>
+            <button type="button" class="collapsible-trigger btn btn-info"><i class="fas fa-lock"></i> Quản lý đóng/mở khai thác</button>
             <div class="collapsible-content">
               <div class="control-group">
-                <button id="banEdgeBtn" class="btn btn-warning"><i class="fas fa-pen"></i> Bắt đầu cấm đường</button>
-                <button id="restoreBanBtn" class="btn btn-success"><i class="fas fa-undo"></i> Khôi phục đoạn vừa cấm</button>
+                <button id="closeStationBtn" class="btn btn-warning"><i class="fas fa-train"></i> Đóng ga</button>
+                <button id="banEdgeBtn" class="btn btn-warning"><i class="fas fa-road-barrier"></i> Đóng đoạn</button>
+                <select id="closeLineSelect" class="algorithm-select"></select>
+                <button id="closeLineBtn" class="btn btn-warning"><i class="fas fa-route"></i> Đóng tuyến</button>
+                <button id="restoreLastOperationBtn" class="btn btn-success"><i class="fas fa-undo"></i> Khôi phục gần nhất</button>
+                <button id="restoreAllOperationsBtn" class="btn btn-danger"><i class="fas fa-trash-alt"></i> Khôi phục tất cả</button>
+                <div id="operationSummary" class="operation-summary">Ga đóng: 0 | Đoạn đóng: 0 | Tuyến đóng: 0</div>
               </div>
               <div class="control-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1);">
                 <button id="placeObstacleBtn" class="btn btn-warning"><i class="fas fa-exclamation-triangle"></i> Đặt vật cản</button>
@@ -85,60 +90,6 @@
             </div>
           </div>
         
-          <div class="collapsible-group">
-            <button type="button" class="collapsible-trigger btn btn-info"><i class="fas fa-car-side"></i> Quản lý Tắc đường</button>
-            <div class="collapsible-content">
-              <div class="control-group">
-                <button id="trafficBtn" class="btn btn-warning"><i class="fas fa-pen"></i> Đánh dấu tắc đường</button>
-                <div class="input-group">
-                  <label>Hệ số tắc:
-                    <input type="number" id="trafficLevel" value="1" min="1" max="3" />
-                  </label>
-                </div>
-                <button id="restoreTacBtn" class="btn btn-success"><i class="fas fa-undo"></i> Khôi phục đoạn tắc</button>
-              </div>
-              <div class="control-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1);">
-                <button id="placeTrafficAreaBtn" class="btn btn-warning"><i class="fas fa-exclamation-circle"></i> Đặt vùng tắc</button>
-                <div class="input-group">
-                  <label>Bán kính ảnh hưởng (m):
-                    <input type="number" id="trafficAreaRadius" value="50" min="10" max="200" />
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        
-          <div class="collapsible-group">
-            <button type="button" class="collapsible-trigger btn btn-info"><i class="fas fa-water"></i> Quản lý Ngập lụt</button>
-            <div class="collapsible-content">
-              <div class="control-group">
-                <button id="floodBtn" class="btn btn-warning"><i class="fas fa-pen"></i> Đánh dấu ngập lụt</button>
-                <div class="input-group">
-                  <label>Hệ số ngập:
-                    <input type="number" id="floodLevel" value="1" min="1" max="3" />
-                  </label>
-                </div>
-                <button id="restoreFloodBtn" class="btn btn-success"><i class="fas fa-undo"></i> Khôi phục đoạn ngập</button>
-              </div>
-              <div class="control-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1);">
-                <button id="placeFloodAreaBtn" class="btn btn-warning"><i class="fas fa-water"></i> Đặt vùng ngập</button>
-                <div class="input-group">
-                  <label>Bán kính ảnh hưởng (m):
-                    <input type="number" id="floodAreaRadius" value="50" min="10" max="200" />
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        
-          <div class="collapsible-group">
-            <button type="button" class="collapsible-trigger btn btn-info"><i class="fas fa-arrow-right"></i> Quản lý Đường 1 chiều</button>
-            <div class="collapsible-content">
-              <div class="control-group">
-                <button id="toggleOneWayEdgeModeBtn" class="btn btn-warning"><i class="fas fa-hand-pointer"></i> Bật/Tắt chế độ</button>
-              </div>
-            </div>
-          </div>
           <hr> <button id="adminResetButton" class="btn btn-danger"><i class="fas fa-trash-alt"></i> Làm mới tất cả</button>
         </div>
       </div>
@@ -162,7 +113,7 @@
       <div class="result-body">
         <div class="result-item"><i class="fas fa-stopwatch"></i> <span id="resultTime">--</span></div>
         <div class="result-item"><i class="fas fa-ruler-combined"></i> <span id="resultDistance">--</span></div>
-        <div class="result-item"><i class="fas fa-tachometer-alt"></i> <span>Vận tốc TB: 15 km/h</span></div>
+        <div class="result-item"><i class="fas fa-tachometer-alt"></i> <span>Vận tốc TB: 40 km/h</span></div>
       </div>
     </div>
 
@@ -171,6 +122,27 @@
     <script src="data/fileJs/nodes.js"></script>
     <script src="data/fileJs/adj_list.js"></script>
     <script src="data/fileJs/adj_list_with_weights.js"></script>
+    <script src="ui/js/state.js"></script>
+    <script src="ui/js/elements.js"></script>
+    <script src="ui/js/utils.js"></script>
+    <script src="ui/js/admin/operations.js"></script>
+
+    <script src="ui/js/map/init.js"></script>
+    <script src="ui/js/map/metro.js"></script>
+    <script src="ui/js/map/search.js"></script>
+    <script src="ui/js/map/selection.js"></script>
+    <script src="ui/js/map/route.js"></script>
+
+    <script src="ui/js/admin/blocked-edge.js"></script>
+    <script src="ui/js/admin/obstacle.js"></script>
+    <script src="ui/js/admin/reset.js"></script>
+    <script src="ui/js/admin/role.js"></script>
+
+    <script src="ui/js/ui/theme.js"></script>
+    <script src="ui/js/ui/inputs.js"></script>
+    <script src="ui/js/ui/result-panel.js"></script>
+    <script src="ui/js/ui/collapsible.js"></script>
+
     <script src="ui/js/main.js"></script>
   </body>
 </html>

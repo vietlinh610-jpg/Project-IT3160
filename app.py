@@ -1,9 +1,9 @@
 # Tệp: app.py
 import csv
+import re
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from copy import deepcopy
-from typing import Dict, List, Optional, Tuple, Set 
+from typing import Dict, List, Optional
 import ast # Sử dụng ast.literal_eval thay cho eval
 
 # Import các thuật toán của bạn
@@ -27,8 +27,10 @@ def static_files(path):
 
 adj_dict_original: Dict[int, Dict[int, float]] = {}
 edges_file_original: str = 'data/fileCsv/adj_list_with_weights.csv'
+nodes_js_file: str = 'data/fileJs/nodes.js'
+node_line_map: Dict[int, str] = {}
 
-DEFAULT_SPEED_MPS: float = 4.17  
+DEFAULT_SPEED_MPS: float = 11.11  # ~40 km/h (Tốc độ trung bình thực tế hơn cho tàu điện ngầm)
 
 try:
     with open(edges_file_original, 'r', encoding='utf-8') as f:
@@ -92,6 +94,16 @@ except FileNotFoundError:
 except Exception as e_file:
     print(f"LỖI không mong muốn khi đọc file {edges_file_original}: {e_file}")
 
+try:
+    with open(nodes_js_file, 'r', encoding='utf-8') as f_nodes:
+        nodes_content = f_nodes.read()
+        for node_id, line_name in re.findall(r"node_id:\s*(\d+).*?line:\s*'([^']*)'", nodes_content):
+            node_line_map[int(node_id)] = line_name
+except FileNotFoundError:
+    print(f"LỖI: Không tìm thấy file {nodes_js_file}.")
+except Exception as e_nodes:
+    print(f"LỖI không mong muốn khi đọc file {nodes_js_file}: {e_nodes}")
+
 def calculate_path_cost_on_graph(graph: Dict[int, Dict[int, float]], path: List[int]) -> Optional[float]:
     if not path or len(path) < 2: return 0.0
     total_cost = 0.0
@@ -113,6 +125,8 @@ def find_path():
     algorithm_name = data.get('algorithm', 'A Star')
     
     blocked_edges = data.get('blocked_edges', [])
+    closed_stations = {int(node_id) for node_id in data.get('closed_stations', [])}
+    closed_lines = set(data.get('closed_lines', []))
     traffic_edges = data.get('traffic_edges', [])
     traffic_level = int(data.get('traffic_level', 1))
     flood_edges = data.get('flood_edges', [])
@@ -138,10 +152,19 @@ def find_path():
     if start_node not in all_nodes_in_original_graph or end_node not in all_nodes_in_original_graph:
          return jsonify({"error": f"Node bắt đầu ({start_node}) hoặc kết thúc ({end_node}) không tồn tại trong dữ liệu đồ thị."}), 400
 
+    if start_node in closed_stations or end_node in closed_stations:
+         return jsonify({"error": "Ga bắt đầu hoặc ga kết thúc đang bị đóng."}), 400
+    if node_line_map.get(start_node) in closed_lines or node_line_map.get(end_node) in closed_lines:
+         return jsonify({"error": "Tuyến của ga bắt đầu hoặc ga kết thúc đang bị đóng."}), 400
+
     adj_list_filtered = {}
     for u, neighbors in adj_dict_original.items():
         adj_list_filtered[u] = {}
         for v, distance in neighbors.items():
+            if u in closed_stations or v in closed_stations:
+                continue
+            if node_line_map.get(u) in closed_lines or node_line_map.get(v) in closed_lines:
+                continue
             base_time_seconds = distance / DEFAULT_SPEED_MPS
             adj_list_filtered[u][v] = base_time_seconds
     

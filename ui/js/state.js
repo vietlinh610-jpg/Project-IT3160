@@ -48,4 +48,10 @@ let operationLayers = [];
 const ONE_WAY_ARROW_COLOR = 'purple'; // Màu cho mũi tên và đường một chiều
 const ONE_WAY_CLICK_THRESHOLD_METERS = 20; // Ngưỡng khoảng cách (mét) để chọn cạnh khi click
 let currentDebugDisplayLayers = [];
-let guestPathPolyline = null;
+let guestPathGroup = null; // Quản lý nhóm gồm nhiều đoạn đường và icon chuyển trạm
+
+// Các biến quản lý điểm gốc (nơi người dùng click) và đường nét đứt
+let startOriginMarker = null; 
+let endOriginMarker = null;
+let startConnectionLine = null;
+let endConnectionLine = null;

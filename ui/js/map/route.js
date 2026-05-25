@@ -118,139 +118,106 @@ function findAndDrawPath() {
 }
 
 function drawPath(pathNodeIds, costWithFactors, realDistance, algorithmUsed) {
-  // Xóa đường đi cũ của guest nếu có
-  algorithmSelect.disabled = true; // Khóa
-  togglePaths.disabled = true;
-  roleToggle.disabled = true;
-  guestResetButton.disabled = true;
-  if (guestPathPolyline && map.hasLayer(guestPathPolyline)) {
-      map.removeLayer(guestPathPolyline);
-      guestPathPolyline = null;
+  const algSelect = document.getElementById("algorithmSelect");
+  const togPaths = document.getElementById("togglePaths");
+  const rToggle = document.getElementById("roleToggle");
+  const gResetBtn = document.getElementById("guestResetButton");
+
+  // Khóa UI
+  if(algSelect) algSelect.disabled = true;
+  if(togPaths) togPaths.disabled = true;
+  if(rToggle) rToggle.disabled = true;
+  if(gResetBtn) gResetBtn.disabled = true;
+
+  // Xóa nhóm đường đi cũ và tạo lại group mới
+  if (typeof guestPathGroup !== 'undefined' && guestPathGroup) {
+      guestPathGroup.clearLayers();
+      map.removeLayer(guestPathGroup);
   }
-  // Cũng có thể bạn dùng ID để xóa, đảm bảo nó được xóa:
-  map.eachLayer(function (layer) {
-      if (layer.options && layer.options.id === 'path-polyline-guest') {
-          map.removeLayer(layer);
-      }
-  });
+  guestPathGroup = L.featureGroup().addTo(map);
 
+  // Lọc lấy danh sách dữ liệu ga (node objects)
+  const pathNodes = pathNodeIds.map(id => nodes.find(n => n.node_id === id)).filter(n => n !== undefined);
+  if (pathNodes.length < 2) return;
 
-  if (!pathNodeIds || pathNodeIds.length < 2) {
-      console.warn("drawPath: Đường đi không hợp lệ hoặc không đủ điểm để vẽ.");
-      return;
-  }
-
-  const latlngs = pathNodeIds.map((id) => {
-      const node = nodes.find((n) => n.node_id === id);
-      if (!node) {
-          console.warn(`drawPath: Không tìm thấy thông tin cho node ID: ${id}`);
-          return null;
-      }
-      return [node.lat, node.lon];
-  }).filter(p => p !== null && typeof p[0] === 'number' && typeof p[1] === 'number');
-
-  if (latlngs.length < 2) {
-      console.warn("drawPath: Không đủ điểm hợp lệ (sau khi lọc) để vẽ đường đi.");
-      return;
-  }
-
-  // Tạo đối tượng polyline, ban đầu chỉ với điểm đầu tiên để bắt đầu animation
-  guestPathPolyline = L.polyline([latlngs[0]], { // Khởi tạo với điểm đầu tiên
-      color: "#FF007F", // Màu Neon Hot Pink cho đường đi
-      weight: 6,        // Độ dày của đường
-      opacity: 0.85,
-      id: 'path-polyline-guest', // ID để có thể xóa sau này
-      className: 'path-guest-route' // Class CSS (nếu có)
-  }).addTo(map);
-
-
-
-  // --- BẮT ĐẦU CHUẨN BỊ DỮ LIỆU CHO BẢNG KẾT QUẢ ---
-  let formattedCost = "Không có";
+  // Chuẩn bị dữ liệu hiển thị Bảng kết quả
+  let formattedCost = "Không có", formattedDistance = "Không có";
   if (costWithFactors !== undefined && costWithFactors !== null && costWithFactors !== Infinity) {
-      if (costWithFactors >= 3600) {
-          formattedCost = `${Math.floor(costWithFactors / 3600)} giờ ${Math.floor((costWithFactors % 3600) / 60)} phút`;
-      } else if (costWithFactors >= 60) {
-          formattedCost = `${Math.floor(costWithFactors / 60)} phút ${Math.round(costWithFactors % 60)} giây`;
-      } else if (costWithFactors > 0) {
-          formattedCost = `${costWithFactors.toFixed(0)} giây`;
-      } else if (costWithFactors === 0) {
-          formattedCost = `Không đáng kể`;
-      }
+      if (costWithFactors >= 3600) formattedCost = `${Math.floor(costWithFactors / 3600)} giờ ${Math.floor((costWithFactors % 3600) / 60)} phút`;
+      else if (costWithFactors >= 60) formattedCost = `${Math.floor(costWithFactors / 60)} phút ${Math.round(costWithFactors % 60)} giây`;
+      else if (costWithFactors >= 0) formattedCost = `${costWithFactors.toFixed(0)} giây`;
   }
-
-  let formattedDistance = "Không có";
   if (realDistance !== undefined && realDistance !== null && realDistance !== Infinity) {
-      if (realDistance >= 1000) {
-          formattedDistance = (realDistance / 1000).toFixed(2) + " km";
-      } else if (realDistance >= 0) {
-          formattedDistance = realDistance.toFixed(0) + " m";
-      }
+      if (realDistance >= 1000) formattedDistance = (realDistance / 1000).toFixed(2) + " km";
+      else if (realDistance >= 0) formattedDistance = realDistance.toFixed(0) + " m";
   }
 
-  // Gán dữ liệu vào HTML của Bảng Kết Quả
   const algNameEl = document.getElementById("resultAlgorithmName");
   if (algNameEl) algNameEl.innerHTML = `<i class="fas fa-route"></i> ${algorithmUsed}`;
-  
   const timeEl = document.getElementById("resultTime");
   if (timeEl) timeEl.innerText = formattedCost;
-  
   const distEl = document.getElementById("resultDistance");
   if (distEl) distEl.innerText = formattedDistance;
-  // --- KẾT THÚC CHUẨN BỊ DỮ LIỆU ---
 
-  // Animation
-  let currentIndex = 1; 
-  const animationSpeed = 80; 
-  const totalSegments = latlngs.length -1;
+  // Hiệu ứng Animation vẽ từng đoạn
+  let currentIndex = 0; 
+  const animationSpeed = 50; 
   let segmentsDrawn = 0;
 
   function animatePathDrawing() {
-      if (currentIndex < latlngs.length && guestPathPolyline && map.hasLayer(guestPathPolyline)) {
-          guestPathPolyline.addLatLng(L.latLng(latlngs[currentIndex]));
+      if (currentIndex < pathNodes.length - 1) {
+          const n1 = pathNodes[currentIndex];
+          const n2 = pathNodes[currentIndex + 1];
+          const isTransfer = n1.line !== n2.line; // Phát hiện chuyển tuyến
+
+          const p1 = [n1.lat, n1.lon];
+          const p2 = [n2.lat, n2.lon];
+          let segmentOptions = {};
+
+          if (isTransfer) {
+              // Đi bộ chuyển trạm: Nét đứt màu xám đậm
+              segmentOptions = { color: "#666", weight: 5, dashArray: "5, 5", opacity: 0.9 };
+              
+              // Tạo Icon Người đi bộ ở ngay điểm giữa
+              const midpoint = [(n1.lat + n2.lat) / 2, (n1.lon + n2.lon) / 2];
+              const transferIcon = L.divIcon({
+                  className: 'transfer-icon-marker',
+                  html: '<i class="fas fa-walking"></i>',
+                  iconSize: [22, 22],
+                  iconAnchor: [11, 11]
+              });
+              L.marker(midpoint, { icon: transferIcon }).addTo(guestPathGroup)
+                .bindPopup(`<b>🚶 Chuyển tuyến</b><br>Từ: ${n1.line}<br>Sang: ${n2.line}`, { className: 'compact-point-popup' });
+          } else {
+              // Đi trên tàu: Màu Xanh lam (#007bff) rõ ràng, nổi bật
+              segmentOptions = { color: "#007bff", weight: 7, opacity: 0.95, className: 'premium-path-segment' };
+          }
+
+          L.polyline([p1, p2], segmentOptions).addTo(guestPathGroup);
+
           segmentsDrawn++;
-          
-          if (segmentsDrawn % 20 === 0 || segmentsDrawn === totalSegments) { // Cập nhật view sau mỗi 5 đoạn hoặc khi kết thúc
-            map.panTo(L.latLng(latlngs[currentIndex]), { animate: true, duration: 0.3});
+          if (segmentsDrawn % 6 === 0) { // Camera lướt theo mỗi 6 trạm
+              map.panTo(L.latLng(p2), { animate: true, duration: 0.2});
           }
 
           currentIndex++;
           setTimeout(animatePathDrawing, animationSpeed);
-      } else if (guestPathPolyline && map.hasLayer(guestPathPolyline)) {
-        algorithmSelect.disabled = false; // Khóa
-        togglePaths.disabled = false;
-        roleToggle.disabled = false;
-        guestResetButton.disabled = false;
-        setTimeout(() => {
-            if (guestPathPolyline && map.hasLayer(guestPathPolyline) && latlngs.length > 0) {
-                // Xác định điểm giữa của đường đi
-                const latLngObjects = latlngs.map(p => L.latLng(p));
-
-                const middleLatLng = getLatLngAtHalfDistance(latLngObjects);
-
-                console.log(middleLatLng);
-
-                // Mở bảng kết quả thay vì popup
-                document.getElementById("routeResultPanel").classList.remove("hidden");
-
-                map.fitBounds(guestPathPolyline.getBounds().pad(0.3));
-            }
-        }, 500);
+      } else {
+          // Hoàn tất animation
+          if(algSelect) algSelect.disabled = false;
+          if(togPaths) togPaths.disabled = false;
+          if(rToggle) rToggle.disabled = false;
+          if(gResetBtn) gResetBtn.disabled = false;
+          
+          setTimeout(() => {
+              const rp = document.getElementById("routeResultPanel");
+              if (rp) rp.classList.remove("hidden");
+              if (guestPathGroup && guestPathGroup.getLayers().length > 0) {
+                  map.fitBounds(guestPathGroup.getBounds().pad(0.1));
+              }
+          }, 300);
       }
   }
 
-  if (latlngs.length >= 1 && guestPathPolyline) { 
-      animatePathDrawing();
-  } else if (latlngs.length === 1 && guestPathPolyline) {
-      algorithmSelect.disabled = false;
-      togglePaths.disabled = false;
-      roleToggle.disabled = false;
-      guestResetButton.disabled = false;
-      setTimeout(() => {
-          if (guestPathPolyline && map.hasLayer(guestPathPolyline)) {
-              document.getElementById("routeResultPanel").classList.remove("hidden");
-               map.setView(L.latLng(latlngs[0]), 17); // Zoom vào điểm đó
-          }
-      }, 500);
-  }
+  animatePathDrawing();
 }

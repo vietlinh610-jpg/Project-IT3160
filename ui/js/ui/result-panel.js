@@ -17,6 +17,18 @@ document.getElementById("swapPointsBtn").addEventListener("click", function() {
   startPointMarker.setLatLng(endPointMarker.getLatLng());
   endPointMarker.setLatLng(tempLatLng);
 
+  // Đảo điểm gốc và đường nối trên bản đồ
+  if (startOriginMarker && endOriginMarker) {
+      const tempOriginLatLng = startOriginMarker.getLatLng();
+      startOriginMarker.setLatLng(endOriginMarker.getLatLng());
+      endOriginMarker.setLatLng(tempOriginLatLng);
+  }
+  if (startConnectionLine && endConnectionLine) {
+      const tempLineLatLngs = startConnectionLine.getLatLngs();
+      startConnectionLine.setLatLngs(endConnectionLine.getLatLngs());
+      endConnectionLine.setLatLngs(tempLineLatLngs);
+  }
+
   // 3. Tự động chạy lại thuật toán
   getAlgorithm(); 
 });

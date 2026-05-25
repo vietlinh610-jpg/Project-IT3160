@@ -1,3 +1,9 @@
+// Hàm gắn vào nút bấm trên Popup để xác nhận tìm trạm tàu
+window.confirmSelection = function(lat, lng) {
+    map.closePopup(); 
+    processMapSelection(lat, lng); 
+};
+
 async function updateMarkerPopupWithGeocoding(marker, lat, lon, title) {
   if (!marker) return;
 
@@ -163,13 +169,31 @@ function processMapSelection(lat, lng) {
 
   if (selectedPoints.length === 0) {
       selectedPoints.push(closestNode.node_id);
+      
+      // Xóa các layer cũ nếu có
       if (startPointMarker) map.removeLayer(startPointMarker);
+      if (startOriginMarker) map.removeLayer(startOriginMarker);
+      if (startConnectionLine) map.removeLayer(startConnectionLine);
+
+      // 1. Tạo điểm chỉ thị ban đầu (nơi click) bằng chấm xám
+      startOriginMarker = L.circleMarker([lat, lng], {
+          radius: 4, color: "#666", fillColor: "#fff", fillOpacity: 1, weight: 2
+      }).addTo(map).bindPopup("Vị trí bạn chọn", { className: 'compact-point-popup' });
+
+      // 2. Vẽ đường nối nét đứt từ điểm click đến trạm gần nhất
+      startConnectionLine = L.polyline([[lat, lng], [closestNode.lat, closestNode.lon]], {
+          color: "#888", weight: 2, dashArray: "4,4"
+      }).addTo(map);
+
+      // 3. Tạo marker trạm tàu (màu xanh lá)
       startPointMarker = L.circleMarker([closestNode.lat, closestNode.lon], {
           radius: 4, color: "green", fillColor: "green", fillOpacity: 0.7, pane: 'markerPane'
       }).addTo(map)
         .bindPopup(`<b>Điểm bắt đầu</b>`, { className: 'point-popup start-point-popup compact-point-popup', autoClose: false, closeOnClick: false })
         .openPopup();
+      
       updateMarkerPopupWithGeocoding(startPointMarker, clickedLatLng.lat, clickedLatLng.lng, "Điểm bắt đầu");
+      
   } else if (selectedPoints.length === 1) {
       if (selectedPoints[0] === closestNode.node_id) {
           map.closePopup();
@@ -180,12 +204,29 @@ function processMapSelection(lat, lng) {
           return;
       }
       selectedPoints.push(closestNode.node_id);
+      
+      // Xóa các layer cũ nếu có
       if (endPointMarker) map.removeLayer(endPointMarker);
+      if (endOriginMarker) map.removeLayer(endOriginMarker);
+      if (endConnectionLine) map.removeLayer(endConnectionLine);
+
+      // 1. Tạo điểm chỉ thị ban đầu
+      endOriginMarker = L.circleMarker([lat, lng], {
+          radius: 4, color: "#666", fillColor: "#fff", fillOpacity: 1, weight: 2
+      }).addTo(map).bindPopup("Vị trí bạn chọn", { className: 'compact-point-popup' });
+
+      // 2. Vẽ đường nét đứt
+      endConnectionLine = L.polyline([[lat, lng], [closestNode.lat, closestNode.lon]], {
+          color: "#888", weight: 2, dashArray: "4,4"
+      }).addTo(map);
+
+      // 3. Tạo marker trạm tàu (màu xanh lá)
       endPointMarker = L.circleMarker([closestNode.lat, closestNode.lon], {
           radius: 4, color: "green", fillColor: "green", fillOpacity: 0.7, pane: 'markerPane'
       }).addTo(map)
         .bindPopup(`<b>Điểm kết thúc</b>`, { className: 'point-popup end-point-popup compact-point-popup', autoClose: false, closeOnClick: false })
         .openPopup();
+        
       updateMarkerPopupWithGeocoding(endPointMarker, clickedLatLng.lat, clickedLatLng.lng, "Điểm kết thúc");
   } else {
     const popup = L.popup({
@@ -274,8 +315,22 @@ map.on("click", function (e) {
       return;
   }
 
-  // Nếu không phải các mode đặc biệt của admin, gọi hàm xử lý chọn điểm
-  processMapSelection(lat, lng);
+  // Nếu không phải các mode đặc biệt của admin, hiện Popup chứa nút bấm
+  const popupHtml = `
+    <div style="text-align: center; padding: 5px;">
+        <p style="margin-top: 0; margin-bottom: 10px; font-weight: 500; font-size: 14px;">
+            Chọn vị trí này?
+        </p>
+        <button class="btn btn-primary" onclick="window.confirmSelection(${lat}, ${lng})" style="padding: 8px 12px; margin: 0; width: 100%;">
+            <i class="fas fa-location-arrow"></i> Tìm trạm gần nhất
+        </button>
+    </div>
+  `;
+
+  L.popup({ className: 'synced-leaflet-popup compact-point-popup' })
+    .setLatLng(e.latlng)
+    .setContent(popupHtml)
+    .openOn(map);
 });
 
 // Xử lý di chuyển chuột

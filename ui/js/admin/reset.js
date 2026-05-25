@@ -10,6 +10,11 @@ function resetMapWithGuest() {
   if (startPointMarker) {
       map.removeLayer(startPointMarker);
       startPointMarker = null;
+
+      if (startOriginMarker) { map.removeLayer(startOriginMarker); startOriginMarker = null; }
+      if (endOriginMarker) { map.removeLayer(endOriginMarker); endOriginMarker = null; }
+      if (startConnectionLine) { map.removeLayer(startConnectionLine); startConnectionLine = null; }
+      if (endConnectionLine) { map.removeLayer(endConnectionLine); endConnectionLine = null; }
   }
   if (endPointMarker) {
       map.removeLayer(endPointMarker);

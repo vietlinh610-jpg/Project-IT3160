@@ -13,15 +13,11 @@ document.getElementById("togglePaths").addEventListener("click", () => {
 });
 
 function getAlgorithm() {
-  map.eachLayer(function (layer) {
-    if (
-      layer instanceof L.Polyline &&
-      !(layer instanceof L.TileLayer) &&
-      (layer.options.color === "#FF007F" || layer.options.id === 'path-polyline-guest')
-    ) {
-      map.removeLayer(layer);
-    }
-  });
+  if (typeof guestPathGroup !== 'undefined' && guestPathGroup) {
+      guestPathGroup.clearLayers();
+      map.removeLayer(guestPathGroup);
+      guestPathGroup = null;
+  }
   findAndDrawPath();
 }
 
